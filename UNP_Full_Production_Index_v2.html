@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>UNP BSMLS Pre-Listing Interview</title>
+<style>
+body{font-family:Arial,sans-serif;background:#e9eef5;margin:0}
+.header{background:#d7e6f7;padding:20px;text-align:center;font-weight:bold}
+.container{max-width:900px;margin:20px auto;background:#fff;padding:25px;border-radius:10px}
+input,select,button{width:100%;padding:10px;margin:8px 0;box-sizing:border-box}
+button{background:#2f6fdb;color:#fff;border:none;cursor:pointer}
+.score{font-size:22px;font-weight:bold;color:green}
+#successPage{display:none;text-align:center}
+</style>
+</head>
+<body>
+<div class="header">
+University of Northern Philippines<br>
+College of Health Sciences<br>
+Bachelor of Science in Medical Laboratory Science<br>
+Incoming First Year Pre‑Listing Interview
+</div>
+
+<div class="container" id="formPage">
+<h2>Student Information</h2>
+<input id="completeName" placeholder="Complete Name">
+<select id="category">
+<option value="85 Above">85 Above</option>
+<option value="83-84">83-84</option>
+<option value="Not Prio BSMLS">Not Prio BSMLS</option>
+<option value="Shifter">Shifter</option>
+<option value="Equity">Equity Target Group</option>
+</select>
+<input id="unpCat" type="number" placeholder="UNP CAT Score" oninput="computeScore()">
+<input id="gwa" type="number" placeholder="SHS General Average" oninput="computeScore()">
+<input id="lowestGrade" placeholder="Lowest Grade">
+<input id="requirements" placeholder="Requirement/s Submitted">
+<input id="strand" placeholder="SHS Strand">
+<input id="interviewScore" type="number" placeholder="Interview Score" oninput="computeScore()">
+<input id="equityScore" type="number" placeholder="Equity Score" oninput="computeScore()">
+<input id="contact" placeholder="Mobile Number">
+<div class="score">Computed Score: <span id="score">0.00</span></div>
+<button onclick="submitForm()">Submit Registration</button>
+</div>
+
+<div class="container" id="successPage">
+<h1>✓ Registration Submitted</h1>
+<h2 id="queue"></h2>
+<h2 id="finalScore"></h2>
+<button onclick="resetForm()">Submit Another Applicant</button>
+</div>
+
+<script>
+const API="https://script.google.com/macros/s/AKfycbzZ78kqQ2CfI-cHo07ih5YEMTmayIqncnesMys1xY2OpNNj0ryLmthzZk4Lzy4hBfEQew/exec";
+function computeScore(){
+ let s=(+unpCat.value||0)*0.60+(+gwa.value||0)*0.20+(+interviewScore.value||0)*0.15+(+equityScore.value||0)*0.05;
+ score.textContent=s.toFixed(2);
+}
+async function submitForm(){
+ const res=await fetch(API,{
+ method:"POST",
+ body:JSON.stringify({
+ action:"saveApplicant",
+ completeName:completeName.value,
+ category:category.value,
+ unpCat:unpCat.value,
+ gwa:gwa.value,
+ lowestGrade:lowestGrade.value,
+ requirements:requirements.value,
+ strand:strand.value,
+ interviewScore:interviewScore.value,
+ equityScore:equityScore.value,
+ contact:contact.value
+ })});
+ const result=await res.json();
+ if(result.success){
+  formPage.style.display="none";
+  successPage.style.display="block";
+  queue.innerText="Queue Number: "+(result.queue||"");
+  finalScore.innerText="Final Score: "+(result.score||"");
+ } else alert(JSON.stringify(result));
+}
+function resetForm(){
+ document.querySelectorAll("input").forEach(i=>i.value="");
+ score.textContent="0.00";
+ successPage.style.display="none";
+ formPage.style.display="block";
+}
+</script>
+</body></html>
