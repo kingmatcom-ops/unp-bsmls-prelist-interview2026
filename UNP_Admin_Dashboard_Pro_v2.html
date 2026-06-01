@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>UNP BSMLS Admin Dashboard Pro v2</title>
+<style>
+body{font-family:Arial;background:#eef2f5;padding:20px;margin:0}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:15px}
+.stat,.card{background:#fff;border-radius:10px;padding:15px;box-shadow:0 2px 4px rgba(0,0,0,.08)}
+.searchbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px}
+input,select,button{padding:10px}
+.card{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.badge{min-width:240px;height:130px;display:flex;align-items:center;justify-content:center;border-radius:10px;font-size:24px;font-weight:bold;text-align:center}
+.decision-accepted{background:#e8f5e9;color:#2e7d32;border:1px solid #2e7d32}
+.decision-waitlist{background:#fff8e1;color:#f57c00;border:1px solid #f57c00}
+.decision-rejected{background:#ffebee;color:#c62828;border:1px solid #c62828}
+.decision-none{background:#f5f5f5;color:#757575;border:1px solid #bdbdbd}
+.status-done{color:#2e7d32;font-weight:bold}
+.status-pending{color:#f57c00;font-weight:bold}
+.status-noappearance{color:#c62828;font-weight:bold}
+</style>
+</head>
+<body>
+
+<h1>UNP BSMLS Admissions Dashboard Pro</h1>
+
+<div class="stats">
+<div class="stat">Applicants <h2 id="total">0</h2></div>
+<div class="stat">Accepted <h2 id="accepted">0</h2></div>
+<div class="stat">Waitlist <h2 id="waitlist">0</h2></div>
+<div class="stat">Pending <h2 id="pending">0</h2></div>
+</div>
+
+<div class="searchbar">
+<input id="search" placeholder="Search applicant">
+<select id="categoryFilter">
+<option value="">All Categories</option>
+<option>85 Above</option>
+<option>83-84</option>
+<option>Not Prio BSMLS</option>
+<option>Shifter</option>
+<option>Equity</option>
+</select>
+<input id="acceptedQuota" type="number" value="20" placeholder="Accepted Quota">
+<input id="waitlistQuota" type="number" value="10" placeholder="Waitlist Quota">
+<button onclick="autoRank()">Auto Rank</button>
+<button onclick="window.print()">Export PDF</button>
+</div>
+
+<h2>Leaderboard</h2>
+<table border="1" width="100%" cellspacing="0" cellpadding="6" style="background:white">
+<thead><tr><th>Rank</th><th>Name</th><th>Score</th></tr></thead>
+<tbody id="leaderboard"></tbody>
+</table>
+
+<hr>
+
+<div id="results"></div>
+
+<script>
+const API="https://script.google.com/macros/s/AKfycbzZ78kqQ2CfI-cHo07ih5YEMTmayIqncnesMys1xY2OpNNj0ryLmthzZk4Lzy4hBfEQew/exec";
+
+function decisionClass(d){
+ if(d==="Accepted") return "decision-accepted";
+ if(d==="On Waitlist") return "decision-waitlist";
+ if(d==="Not Accepted") return "decision-rejected";
+ return "decision-none";
+}
+
+function decisionLabel(d){
+ if(d==="Accepted") return "✓ ACCEPTED";
+ if(d==="On Waitlist") return "⏳ ON WAITLIST";
+ if(d==="Not Accepted") return "✕ NOT ACCEPTED";
+ return "NO DECISION";
+}
+
+function statusClass(s){
+ if(s==="Done") return "status-done";
+ if(s==="Pending") return "status-pending";
+ return "status-noappearance";
+}
+
+async function getData(){
+ return await (await fetch(API+'?getData=1')).json();
+}
+
+async function updateStatus(queue,status){
+ await fetch(API,{method:'POST',body:JSON.stringify({action:'updateStatus',queue,status})});
+ load();
+}
+
+async function updateDecision(queue,decision){
+ await fetch(API,{method:'POST',body:JSON.stringify({action:'updateDecision',queue,decision})});
+ load();
+}
+
+async function autoRank(){
+ const data=await getData();
+ data.sort((a,b)=>(parseFloat(b.finalScore||0)-parseFloat(a.finalScore||0)));
+ const a=parseInt(acceptedQuota.value)||0;
+ const w=parseInt(waitlistQuota.value)||0;
+
+ for(let i=0;i<data.length;i++){
+  let decision='Not Accepted';
+  if(i<a) decision='Accepted';
+  else if(i<a+w) decision='On Waitlist';
+  await updateDecision(data[i].queue,decision);
+ }
+ load();
+}
+
+function leaderboard(data){
+ leaderboard.innerHTML='';
+ [...data].sort((a,b)=>parseFloat(b.finalScore||0)-parseFloat(a.finalScore||0))
+ .slice(0,20)
+ .forEach((r,i)=>{
+  document.getElementById('leaderboard').innerHTML += `<tr><td>${i+1}</td><td>${r.completeName||''}</td><td>${r.finalScore||''}</td></tr>`;
+ });
+}
+
+function render(data){
+
+ total.textContent=data.length;
+ accepted.textContent=data.filter(x=>x.decision==='Accepted').length;
+ waitlist.textContent=data.filter(x=>x.decision==='On Waitlist').length;
+ pending.textContent=data.filter(x=>!x.decision).length;
+
+ const q=(search.value||'').toLowerCase();
+ const cat=categoryFilter.value;
+
+ const filtered=data.filter(r=>{
+  return (r.completeName||'').toLowerCase().includes(q)
+  && (!cat || r.category===cat);
+ });
+
+ document.getElementById('leaderboard').innerHTML='';
+ [...filtered].sort((a,b)=>parseFloat(b.finalScore||0)-parseFloat(a.finalScore||0))
+ .slice(0,20)
+ .forEach((r,i)=>{
+ document.getElementById('leaderboard').innerHTML+=`<tr><td>${i+1}</td><td>${r.completeName||''}</td><td>${r.finalScore||''}</td></tr>`;
+ });
+
+ results.innerHTML='';
+
+ filtered.forEach(r=>{
+
+ results.innerHTML += `
+ <div class="card">
+
+ <div>
+ <h3>${r.completeName||''}</h3>
+
+ Category: ${r.category||''}<br>
+ Lowest Grade: ${r.lowestGrade||''}<br>
+ Requirements: ${r.requirements||''}<br>
+ SHS Strand: ${r.strand||''}<br>
+ Final Score: <b>${r.finalScore||''}</b><br>
+
+ Status:
+ <span class="${statusClass(r.status)}">
+ ${r.status||''}
+ </span>
+
+ <br><br>
+
+ <select onchange="updateStatus('${r.queue}',this.value)">
+ <option value="">Interview Status</option>
+ <option>Pending</option>
+ <option>Done</option>
+ <option>No Appearance</option>
+ </select>
+
+ <select onchange="updateDecision('${r.queue}',this.value)">
+ <option value="">Decision</option>
+ <option>Accepted</option>
+ <option>On Waitlist</option>
+ <option>Not Accepted</option>
+ </select>
+
+ </div>
+
+ <div class="badge ${decisionClass(r.decision)}">
+ ${decisionLabel(r.decision)}
+ </div>
+
+ </div>`;
+ });
+}
+
+async function load(){
+ render(await getData());
+}
+
+search.addEventListener('input',load);
+categoryFilter.addEventListener('change',load);
+
+load();
+</script>
+
+</body>
+</html>
