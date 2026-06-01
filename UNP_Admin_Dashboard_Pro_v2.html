@@ -134,9 +134,9 @@ function render(data){
  });
 
  document.getElementById('leaderboard').innerHTML='';
- [...filtered].sort((a,b)=>parseFloat(b.finalScore||0)-parseFloat(a.finalScore||0))
- .slice(0,20)
- .forEach((r,i)=>{
+[...filtered]
+.sort((a,b)=>parseFloat(b.finalScore||0)-parseFloat(a.finalScore||0))
+.forEach((r,i)=>{
  document.getElementById('leaderboard').innerHTML+=`<tr><td>${i+1}</td><td>${r.completeName||''}</td><td>${r.finalScore||''}</td></tr>`;
  });
 
